@@ -368,7 +368,7 @@ impl CryptoVec {
 
     /// Create a `CryptoVec` from a slice
     ///
-    /// ```
+    /// ```ignore (only-for-syntax-highlight)
     /// CryptoVec::from_slice(b"test");
     /// ```
     pub fn from_slice(s: &[u8]) -> CryptoVec {
@@ -392,5 +392,53 @@ impl Drop for CryptoVec {
                 free(self.p as *mut c_void)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// confirm that when resize shrinks the buffer it zeroes the bytes
+    /// past the new end
+    #[test]
+    fn shrink_zeroes() {
+        let mut vec = CryptoVec::from_slice(b"shouldzero");
+        vec.resize(6);
+        let p = unsafe { std::slice::from_raw_parts(vec.p, 10) };
+        // memory has not been freed, only zeroed, so this is valid
+        assert_eq!(b"should\0\0\0\0", p);
+    }
+
+    /// confirm that resize overwrites the original buffer when
+    /// it reallocates to a new one
+    ///
+    /// WARNING: this test relies on undefined behavior, so it may
+    /// pass even if the code is incorrect (e.g. if libc::free
+    /// zeroes the buffer), and there is an extremely low but nonzero
+    /// chance that it may fail even if the code is correct (if
+    /// another thread or process gets the memory and happens to
+    /// write the same string to the same location)
+    #[test]
+    fn realloc_changes() {
+        let mut vec = CryptoVec::from_slice(b"shouldzero");
+        let p = unsafe { std::slice::from_raw_parts(vec.p, 10) };
+        vec.resize(1024);
+        // tempting but nondeterministic:
+        // assert_eq!([0; 10], p)
+        // the memory at p has been returned to the OS, so there's
+        // no guarantee that it's still zeroed even if we zeroed it.
+        assert_ne!(&vec[0..10], p);
+    }
+
+    /// confirm that clear (a special case of resize) zeroes
+    /// the entire original buffer
+    #[test]
+    fn clear_zeroes() {
+        let mut vec = CryptoVec::from_slice(b"shouldzero");
+        let p = unsafe { std::slice::from_raw_parts(vec.p, 10) };
+        vec.clear();
+        // memory has not been freed, only zeroed, so this is valid
+        assert_eq!([0; 10], p);
     }
 }
