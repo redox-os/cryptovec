@@ -226,6 +226,9 @@ impl CryptoVec {
                 if self.capacity > 0 {
                     std::ptr::copy_nonoverlapping(old_ptr, self.p, self.size);
                     munlock(old_ptr, self.size);
+                    for i in 0..self.size {
+                        std::ptr::write_volatile(self.p.offset(i as isize), 0)
+                    }
                     free(old_ptr as *mut c_void);
                 }
 
