@@ -207,7 +207,6 @@ impl CryptoVec {
             self.size = size
         } else if size <= self.size {
             // If this is a truncation, resize and erase the extra memory.
-            self.size = size;
             unsafe {
                 libc::memset(
                     self.p.offset(size as isize) as *mut c_void,
@@ -215,6 +214,7 @@ impl CryptoVec {
                     self.size - size,
                 );
             }
+            self.size = size;
         } else {
             // realloc ! and erase the previous memory.
             unsafe {
